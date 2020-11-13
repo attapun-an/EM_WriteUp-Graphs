@@ -1,0 +1,270 @@
+# This is Group 1's challenge 2 script for the Data Science in EES course
+# Group members: Alison, Attapun, Kate, Keshia and Harry
+# Created on 28/10/2020, completed on 4/11/2020
+# Contact us at: 
+
+# Install Libraries----
+# If you do not have the bbplot package installed, please uncomment the code below
+# devtools::install_github('bbc/bbplot')
+# install.packages("ggtext")
+
+# Import Libraries----
+library(tidyverse)  # contains the packages ggplot2, dplyr, tidyr etc.
+library(emojifont)  # package to add emojis or icons
+library(bbplot)  # need to decide if we are incorporating this
+library(ggtext)
+
+
+# Explore emojis ----
+emoji(search_emoji("pizza"))  # gives unicode of the emoji we're interested in
+
+# Import Data ----
+food_data <- read.csv("Resources/Raw_data/Food_data2.csv")
+
+# Process Data----
+
+# Filter for fast food items
+food_combo2 <- food_data %>%                                                    ## filters for
+  dplyr::filter((grepl("FRENCH FR", Shrt_Desc) |                                # fries
+                  grepl("HAMBURGER", Shrt_Desc) |                               # burgers
+                  grepl("FRIED CHICK", Shrt_Desc)) |                            # fried chicken
+                  grepl("PEPPERONI", Shrt_Desc) & grepl("14", Shrt_Desc)        # pepperoni pizzas that are 14" 
+                  ) %>%
+  mutate(kcal_meal = Energ_Kcal,   
+         FA_sat_meal = FA_Sat_.g.,  
+         sodium_meal = Sodium_.mg.,
+         cholesterol_meal = Cholestrl_.mg.) 
+
+# rename all pepperoni pizzas to "pizza", all french fries to "fries" etc
+fast_food <- food_combo2 %>%
+  mutate(Food_type = case_when(
+    grepl("PIZZA", Shrt_Desc) ~ "Pizza", 
+    grepl("HAMBURGER", Shrt_Desc) ~"Burger_Fries_Cola",
+    grepl("FRIED CHICK", Shrt_Desc) ~ "Fried_chicken",
+    grepl("FRENCH FR", Shrt_Desc) ~ "Burger_Fries_Cola")
+    )
+
+# Remove irrelevant or NA rows and subset only columns we are interested in      
+fast_food2 <- fast_food %>%
+  slice(-c(9, 10, 11, 12)) %>%
+  dplyr::select(Shrt_Desc, Food_type, kcal_meal, FA_sat_meal, sodium_meal, cholesterol_meal) %>%
+  drop_na(Food_type, kcal_meal, FA_sat_meal, sodium_meal, cholesterol_meal) %>%
+  add_row(Shrt_Desc = "Coca-cola classic", Food_type = "Burger_Fries_Cola", kcal_meal = 140, FA_sat_meal = 0,
+          sodium_meal = 45, cholesterol_meal = 0)  # add new row for cola values
+
+
+# Reshape to long format and scale values
+fastfood_long <- gather(fast_food2, Nutrient, Amount, c(3:6)) %>% 
+  mutate(Amount =  case_when(                                                   # Scale to per meal size
+    grepl("Pizza", Food_type) ~ Amount*3,                                       # Keshia calculated servings by: [ Pizza += *3, FChkn += *2 ]
+    grepl("Fried_chicken", Food_type) ~ Amount*2,
+    TRUE ~ Amount))
+
+# add new columns for recommended intake and calculate percentage (note, trying to pipe this above caused errors)       
+mean_fastfood <- fastfood_long %>%                                              
+  group_by(Food_type, Nutrient) %>%
+  mutate(Mean_amount = mean(Amount)) %>%
+  select(Food_type, Nutrient, Mean_amount) %>%
+  distinct() %>%
+  ungroup() %>% 
+  mutate(Daily_average_F = case_when(                                           # adds daily average as new column for F 
+    grepl("kcal_meal", Nutrient) ~ 2200,
+    grepl("FA_sat_meal", Nutrient) ~ 20,
+    grepl("sodium_meal", Nutrient) ~ 2300,
+    grepl("cholesterol_meal", Nutrient) ~ 300),
+    Daily_average_M = case_when(                                                # daily average for M in new col
+    grepl("kcal_meal", Nutrient) ~ 2800,
+    grepl("FA_sat_meal", Nutrient) ~ 20,
+    grepl("sodium_meal", Nutrient) ~ 2300,
+    grepl("cholesterol_meal", Nutrient) ~ 300)) 
+
+# turn intakes into percentages
+Percentage_fastfood <- mean_fastfood %>%
+  mutate(Percentage_F = Mean_amount/Daily_average_F*100,
+    Percentage_M = Mean_amount/Daily_average_M*100)
+
+# percentage fast food but with M and F as factors
+Percentage_fastfood_long <- gather(Percentage_fastfood,
+                                   Sex, Percentage, c(6,7)) %>% 
+  dplyr::select(Food_type, Nutrient, Sex, Percentage)
+  
+# To be reviewed by Attapun
+# Keshia created new dataframes to plot percentage bar plot
+# add new columns for recommended intake and calculate percentage (note, trying to pipe this above caused errors)       
+mean_fastfood2 <- fastfood_long %>%                                              
+group_by(Food_type, Nutrient) %>%
+mutate(Mean_amount = mean(Amount)) %>%
+select(Food_type, Nutrient, Mean_amount) %>%
+distinct() %>%
+ungroup() %>% 
+mutate(Daily_average = case_when(                                   # adds daily average as new column for F 
+  grepl("kcal_meal", Nutrient) ~ 2500,  # this is teh average of men and women
+  grepl("FA_sat_meal", Nutrient) ~ 20,
+  grepl("sodium_meal", Nutrient) ~ 2300,
+  grepl("cholesterol_meal", Nutrient) ~ 300))
+
+percentage_fastfood2 <- mean_fastfood2 %>%                           
+  mutate(Fastfood = Mean_amount/Daily_average*100,                              # pun commenting to say that Harry figured out how        
+         Daily_remaining = 100 - Fastfood,                                      # get the colours to flip properly in the last commit
+         Emoji = case_when(Food_type == "Pizza" ~ "\U0001f355",
+                           Food_type == "Burger_Fries_Cola" ~ "\U0001f354",
+                           Food_type == "Fried_chicken" ~ "\U0001f357")) %>%
+  gather(Percentage_type, Percentage, c(5:6))                
+
+         
+  
+# Big chunk of code that pun doesn't understand too well ----
+#Creating data frame with just kcal, creating columns for total kcal and percent of daily cal
+kcalff_long <- fastfood_long %>% 
+  group_by(Food_type) %>% 
+  filter(Nutrient == "kcal_meal") %>% 
+  mutate(Total_male_cal = 2800,
+         Total_female_cal = 2200)
+
+kcal_precentage <- apply(kcalff_long, 2, function(x){x*100/sum(x,na.rm = T)})
+
+         av_percent_of_Mtotal = mean(Amount)/Total_male_cal* 100,
+         av_percent_of_Ftotal = mean(Amount)/Total_female_cal*100)
+
+
+
+mean_fastfood <- fastfood_long %>%
+  group_by(Food_type, Nutrient) %>%
+  mutate(Mean_amount = mean(Amount)) %>%
+  select(Food_type, Nutrient, Mean_amount) %>%
+  distinct() %>%
+  ungroup()
+#Creating boxplot to show the percentage of daily advised calories.        
+(kcal_boxplot <- ggplot(kcalff_long, aes(Food_type, percent_of_total)) +
+    geom_boxplot(aes(fill = Food_type))+ 
+    theme_bw()+
+    scale_fill_manual(values = c("Red", "Orange", "Yellow", "Brown"))+
+    scale_colour_manual(values = c("Red", "Orange", "Yellow", "Brown"))+
+    ylab("Percentage of daily advised calories\n")+
+    xlab("\nFood type")+
+    theme(axis.text = element_text(size = 12),
+          axis.title = element_text(size = 14, face = "plain"),
+          panel.grid = element_blank(),
+          plot.margin = unit(c(1,1,1,1), units = ,"cm"),
+          legend.position = "none"))  
+      
+
+condition <- rep(c("av_kcal", "Remaining_cal"))
+
+ggplot(kcalff_long, aes( fill = condition,
+                         y = Amount, 
+                         x = Food_type)) +
+  geom_bar(position = "fill", stat = "identity")
+
+# To be removed
+# Calculate mean content for each food type
+mean_fastfood <- fastfood_long %>%
+  group_by(Food_type, Nutrient) %>%
+  mutate(Mean_amount = mean(Amount)) %>%
+  select(Food_type, Nutrient, Mean_amount) %>%
+  distinct() %>%
+  ungroup()
+
+burger_combo <- data.frame(Food_type = c("Burger + Fries + Cola", "Burger + Fries + Cola",
+                                         "Burger + Fries + Cola","Burger + Fries + Cola"),
+                           Nutrient = c("kcal_meal", "FA_sat_meal", "sodium_meal", "cholesterol_meal"),
+                           Mean_amount = c(200.6111111 + 250.5238095 + 140.0000000, 1.8002778 + 3.9169524,
+                                           309.8888889 + 454.0952381 + 45.0000000, 0.1666667 + 31.7142857))
+# not sure if there is a more efficient way to create the combo meal
+# Note: Attapun increased efficiency of code
+
+fastfood_combo <- rbind(mean_fastfood, burger_combo)
+fastfood_combo <- fastfood_combo %>%
+  filter(Food_type != "Hamburger" & Food_type != "Fries" &
+         Food_type != "Cola") %>%
+  arrange(Nutrient)
+## IMPORTANT: may need to modify final dataset to combine fries and hamburger data
+#as a combo meal # UPDATE: done 2/11
+
+# Save final data frame                                              
+write.csv(fastfood_combo, "Output/fastfood_combo")                              # should probably move this 
+
+# Creating a circular barplot (to be removed)
+# Set number of empty bars to add between each nutrient group 
+empty_bar <- 4
+add_bar <- data.frame(matrix(NA, empty_bar*nlevels(fastfood_combo$Nutrient), ncol(fastfood_combo)))
+colnames(add_bar) <- colnames(fastfood_combo)                             
+add_bar$Nutrient <- rep(levels(fastfood_combo$Nutrient), each = empty_bar)
+fastfood_final <- rbind(fastfood_combo, add_bar)
+fastfood_final <- fastfood_final %>%
+  arrange(Nutrient)
+fastfood_final$id <- seq(1, nrow(fastfood_final))
+
+# Get the name and the y position of each label
+label_fastfood <- fastfood_final
+number_of_bar <- nrow(label_fastfood)
+angle <- 90 - 360 * (label_fastfood$id-0.5) / number_of_bar
+label_fastfood$hjust <- ifelse(angle < -90, 1, 0)
+label_fastfood$angle <- ifelse(angle < -90, angle + 180, angle)
+
+# Creating the circular barplot
+(fastfood_circularplot <- ggplot(fastfood_final, aes(x = as.factor(id), y = Mean_amount, fill = Nutrient)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  ylim(-2000,6000) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        plot.margin = unit(rep(-1,4), "cm")) +
+  coord_polar() +
+  geom_text(data = label_fastfood, aes(x = id, y = Mean_amount, label = Food_type, hjust = hjust),
+            colour = "black", fontface = "bold", alpha = 0.6, size = 2.5, angle = label_fastfood$angle,
+            inherit.aes = FALSE))
+
+# difficult to compare because the different nutrients have different units.
+# might have to delete circular barplot
+# maybe switch to group barplot instead
+
+
+
+
+# Barplot 
+(fastfood_barplot <- ggplot(Percentage_fastfood_long, aes(x = as.factor(Sex), y = Percentage, fill = Food_type)) +
+  geom_bar(position = "dodge", stat = "identity", alpha = 0.5) +
+  facet_wrap(~ Nutrient, scales = "free_y") +
+  # bbc_style() +
+  theme_bw()+
+  labs(y="Amount in Fast Food\n", x="\nType of Fast Food") +
+  theme(axis.text.x = element_text(size = 0),                                   # removed x lables since there is a legend
+        axis.text.y = element_text(size = 11),
+        axis.title = element_text(size = 14, face = "bold"),
+        panel.grid = element_blank(),
+        plot.margin = unit(c(1,1,1,1), units = , "cm"),
+        legend.text = element_text(size = 12, face = "italic"),
+        legend.title = element_blank(),
+        legend.position = "right")
+ )
+
+
+# Percentage barplot ----
+(fastfood_barplot <- ggplot(percentage_fastfood2, aes(x = as.factor(Emoji), y = Percentage, fill = Percentage_type, label = Emoji)) +
+    geom_bar(position = "fill", stat = "identity", alpha = 0.5) +
+    facet_wrap(~ Nutrient, scales = "free_y") +
+    
+    # bbc_style()
+    theme_bw()+
+    labs(y="Percentage of total daily intake\n", x="\nType of Fast Food", caption="Cholestrol(mg), saturated fat(g),
+         sodium(mg) and energy(kcal) content of three popular American fast foods. The daily refernce intake of kcal is an average of the 
+         recommended value for men and women. The amount in food (except daily average) is for one meal; pizza=3 slices, fried chicken=2 pieces") +
+    theme(axis.text.x = element_markdown(family = "EmojiOne", size = 18)))
+# TO DO:
+# Change X axes labels 
+# Change the scale
+    
+# might have to change colour and axes
+# need to swap position of percentage remaining and percentage in food
+
+# arrange food_type ascending order?
+# REMINDER: add code to save figure once graph is finalised
+finalise_plot (plot_name = fastfood_barplot,
+               source_name = "Source: FDA",
+               save_filepath =  "output/fastfood_barplot.png",
+               width_pixels = 640,
+               height_pixels = 450)
+
