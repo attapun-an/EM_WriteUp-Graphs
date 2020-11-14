@@ -1,6 +1,5 @@
 # load packages---- 
 library(tidyverse)
-library(ggplot2)
 library(ggrepel)
 
 # import and process data ----
@@ -26,7 +25,8 @@ tree_data <- rbind(tree_data_Asia, tree_data_Eurp) %>%                          
     grepl("THA", Plot_code) ~ "THA"),
     Biomass = Biomass/1000) %>%                                                 # from kg to tonnes
     group_by(Plot_code) %>% 
-    mutate(Biomass_per_plot = sum(Biomass)*5.09294626942)                       # sum biomass for each plot, scale data up to biomass per hectare
+    mutate(Biomass_per_plot = sum(Biomass)*5.09294626942,                       # sum biomass for each plot, scale data up to biomass per hectare
+           sum)
 
 head(tree_data)
 #  Generate plot data ----
@@ -44,8 +44,26 @@ p_Biomass_within_site <- tree_data %>%
 p_DBH_within_site <- tree_data %>% 
    dplyr::select(Plot_code, DBH_cm, Country, Biomass_per_plot)
 
+
+# stocking density
+
+Stk_dns_count <- summary(tree_data$Plot_code)*5.09294626942                     # note, this is stems/ha and not trees/ha
+
+p_Stocking_density <- tree_data %>% 
+  mutate(Stk_dns = case_when(
+    grepl("SK01", Plot_code) ~ Stk_dns_count[4],
+    grepl("SK02", Plot_code) ~ Stk_dns_count[5],
+    grepl("SG01", Plot_code) ~ Stk_dns_count[2],
+    grepl("SG02", Plot_code) ~ Stk_dns_count[3],
+    grepl("THA", Plot_code) ~ Stk_dns_count[6]),
+  ) %>% 
+  dplyr::select(Plot_code, Stk_dns, Country, Biomass_per_plot) %>% 
+  distinct()
+
+
 # colors
 colr <- c("#f4a261","#2a9d8f","#e9c46a")
+
 
 # Generate plots ----
 
@@ -63,23 +81,6 @@ colr <- c("#f4a261","#2a9d8f","#e9c46a")
         legend.position = '0')
  )
   
-  
-(graph_Biomass_in_plot <- ggplot(p_Biomass_within_site, aes(x = reorder(Plot_code, -Biomass_per_plot),y = Biomass, fill = Country, alpha = 0.75 ))+
-  geom_violin()+ 
-  # geom_point(aes(alpha = 0.5))+
-  # geom_count(inherit.aes = TRUE,)+
-  # geom_dotplot(binaxis="y", dotsize = 0.1, stackdir = "center")+
-  geom_jitter(width = 0.02, size = 2, alpha = 0.3, aes(colour = Country))+
-  theme_bw()+
-  scale_fill_manual(values = colr)+
-  scale_color_manual(values = colr)+
-  labs(x= "\n Plot code", y = "Biomass (tonnes) \n")+
-  theme(axis.text = element_text(size = 12), 
-        axis.title = element_text(size = 12), 
-        plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'), 
-        plot.margin = unit(c(0.5,0.5,0.5,0.5), units = , 'cm'), 
-        legend.position = '0')
-    )
 
 (graph_DBH_in_plot <- ggplot(p_DBH_within_site, aes(x = reorder(Plot_code, -Biomass_per_plot),y = DBH_cm, fill = Country, alpha = 0.75 ))+
     geom_violin(scale = "count")+ 
@@ -95,10 +96,24 @@ colr <- c("#f4a261","#2a9d8f","#e9c46a")
           legend.position = '0')
 )
 
+(graph_Stocking_density <- ggplot(p_Stocking_density, 
+                                  aes(x = reorder(Plot_code, -Biomass_per_plot),
+                                      y = Stk_dns, fill = Country))+
+    geom_bar(stat = "Identity", alpha = 0.75)+
+    theme_bw()+
+    scale_fill_manual(values = colr)+
+    labs(x= "\n Plot code", y = "Stocking density (stems/ha) \n")+
+    theme(axis.text = element_text(size = 12), 
+          axis.title = element_text(size = 12), 
+          plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'), 
+          plot.margin = unit(c(0.5,0.5,0.5,0.5), units = , 'cm'), 
+          legend.position = '0')
+)
+
  # save plots ----
 ggsave("Output/Mean-Biomass-Plot.png", plot = graph_Biomass_per_plot, device = "png")
 ggsave("Output/DBH-within-plot.png", plot = graph_DBH_in_plot, device = "png")
-
+ggsave("Output/Stocking-Density.png", plot = graph_Stocking_density, device = "png")
   
   
   
