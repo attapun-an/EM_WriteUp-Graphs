@@ -131,7 +131,7 @@ ggsave("Output/Mean-Biomass-Plot.png", plot = graph_Biomass_per_plot, device = "
 ggsave("Output/DBH-within-plot.png", plot = graph_DBH_in_plot, device = "png")
 ggsave("Output/DBH-within-plot_scaled.png", plot = graph_DBH_in_plot_scaled, device = "png")
 ggsave("Output/Stocking-Density.png", plot = graph_Stocking_density, device = "png")
-ggsave("Output/Stacked.png", plot = graph_stacked, device = "png", width = 6.71, height = 8, units = "in")
+ggsave("Output/Stacked.png", plot = graph_stacked, device = "png", width = 6.71, height = 10, units = "in")
   
   
   
