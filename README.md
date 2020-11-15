@@ -1,7 +1,7 @@
 # EM-tree-data-plotting
 Coded by Attapun Anivat (attapun-an) | 2020-11-13 | attapunanivat@gmail.com
 
-Graphing the biomass of trees within each plot as a barplot (to show biomass per hectare) and violin plot (distribution of biomass within each plot)
+Graphing the biomass of trees within each plot as a barplot (to show biomass per hectare), violin plot (distribution of biomass within each plot), and barplot of stocking density
 
 |![](Output/Mean-Biomass-Plot.png)|![](Output/DBH-within-plot.png)|
 |---|:---|
