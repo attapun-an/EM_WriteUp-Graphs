@@ -1,6 +1,7 @@
 # load packages---- 
 library(tidyverse)
 library(ggrepel)
+library(patchwork)
 
 # import and process data ----
 tree_data <- read.csv("Resources/TreeData.csv") %>% slice(-211) %>%                       # removes empty row
@@ -25,8 +26,8 @@ tree_data <- rbind(tree_data_Asia, tree_data_Eurp) %>%                          
     grepl("THA", Plot_code) ~ "THA"),
     Biomass = Biomass/1000) %>%                                                 # from kg to tonnes
     group_by(Plot_code) %>% 
-    mutate(Biomass_per_plot = sum(Biomass)*5.09294626942,                       # sum biomass for each plot, scale data up to biomass per hectare
-           sum)
+    mutate(Biomass_per_plot = sum(Biomass)*5.09294626942)                       # sum biomass for each plot, scale data up to biomass per hectare
+           
 
 head(tree_data)
 #  Generate plot data ----
@@ -80,10 +81,23 @@ colr <- c("#f4a261","#2a9d8f","#e9c46a")
         plot.margin = unit(c(0.5,0.5,0.5,0.5), units = , 'cm'), 
         legend.position = '0')
  )
-  
+
+(graph_DBH_in_plot_scaled <- ggplot(p_DBH_within_site, aes(x = reorder(Plot_code, -Biomass_per_plot),y = DBH_cm, fill = Country, alpha = 0.75 ))+
+    geom_violin()+ 
+    geom_jitter(width = 0.02, size = 2, alpha = 0.3, aes(colour = Country))+
+    theme_bw()+
+    scale_fill_manual(values = colr)+
+    scale_color_manual(values = colr)+
+    labs(x= "\n Plot code", y = "Diameter at Breast Height (cm) \n")+
+    theme(axis.text = element_text(size = 12), 
+          axis.title = element_text(size = 12), 
+          plot.title = element_text(size = 14, hjust = 0.5, face = 'bold'), 
+          plot.margin = unit(c(0.5,0.5,0.5,0.5), units = , 'cm'), 
+          legend.position = '0')
+)  
 
 (graph_DBH_in_plot <- ggplot(p_DBH_within_site, aes(x = reorder(Plot_code, -Biomass_per_plot),y = DBH_cm, fill = Country, alpha = 0.75 ))+
-    geom_violin(scale = "count")+ 
+    geom_violin(scale = "count")+
     geom_jitter(width = 0.02, size = 2, alpha = 0.3, aes(colour = Country))+
     theme_bw()+
     scale_fill_manual(values = colr)+
@@ -110,10 +124,14 @@ colr <- c("#f4a261","#2a9d8f","#e9c46a")
           legend.position = '0')
 )
 
+(graph_stacked <- graph_Biomass_per_plot+labs(x = "") + graph_Stocking_density+labs(x= "") + graph_DBH_in_plot_scaled + plot_layout(ncol = 1))
+
  # save plots ----
 ggsave("Output/Mean-Biomass-Plot.png", plot = graph_Biomass_per_plot, device = "png")
 ggsave("Output/DBH-within-plot.png", plot = graph_DBH_in_plot, device = "png")
+ggsave("Output/DBH-within-plot_scaled.png", plot = graph_DBH_in_plot_scaled, device = "png")
 ggsave("Output/Stocking-Density.png", plot = graph_Stocking_density, device = "png")
+ggsave("Output/Stacked.png", plot = graph_stacked, device = "png", width = 6.71, height = 8, units = "in")
   
   
   
