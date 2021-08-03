@@ -1,11 +1,17 @@
+install.packages("dplyr")
+
 # load packages---- 
-library(tidyverse)
+library(dplyr)
+library(tidyr)
 library(ggrepel)
+library(ggplot2)
 library(patchwork)
 
+
+
 # import and process data ----
-tree_data <- read.csv("Resources/TreeData.csv") %>% slice(-211) %>%                       # removes empty row
-  rename(Plot_code = ï..Plot_Code) %>%                                          # renames header which didn't import correctly
+tree_data <- read.csv("Resources/TreeData.csv") %>% slice(-211) %>%                       # removes empty row                                         
+  rename(Plot_code = Plot_Code) %>% 
   dplyr::select(-c(X, X.1))                                                     # removes empty columns 
 
 tree_data_Asia <- tree_data %>% 
@@ -28,9 +34,6 @@ tree_data <- rbind(tree_data_Asia, tree_data_Eurp) %>%                          
     group_by(Plot_code) %>% 
     mutate(Biomass_per_plot = sum(Biomass)*5.09294626942)                       # sum biomass for each plot, scale data up to biomass per hectare
            
-
-head(tree_data)
-#  Generate plot data ----
 
 # biomass per plot 
 p_Biomass_vs_Site <- tree_data %>% 
